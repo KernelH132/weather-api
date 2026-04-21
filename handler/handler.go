@@ -20,11 +20,25 @@ var rdb = redis.NewClient(&redis.Options{
 })
 
 func GetWeather(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "http://127.0.0.1:5500")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	var location models.Location
 
 	// Method Check
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if r.URL.Path != "/getweather" {
+		http.Error(w, "Page not found", http.StatusNotFound)
 		return
 	}
 
@@ -84,11 +98,16 @@ func GetWeather(w http.ResponseWriter, r *http.Request) {
 		Data:         weather,
 	}
 
-	jsonData, _ := json.Marshal(finalResult)
+	jsonData, err := json.Marshal(finalResult)
+	if err != nil {
+		http.Error(w, "Something went wrong", 500)
+		return
+	}
 
-	rdb.Set(ctx, cacheKey, jsonData, 30*time.Minute)
+	rdb.Set(ctx, cacheKey, jsonData, 20*time.Minute)
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("X-Cache", "MISS")
 	w.Write(jsonData)
 }
